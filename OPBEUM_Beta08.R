@@ -56,6 +56,10 @@ basedir<-"R://Data/Projects/Purple_Line"
 
 setwd(basedir)
 
+##create fodlers
+dir.create("Output", showWarnings = FALSE)
+dir.create("temp", showWarnings = FALSE)
+
 ##Using cell centroids for distance or something else? (default is cell cenntroid, if using other shapefile enter name below)
 cell_centroid<-"Name"   #<--name shapefile here
 
