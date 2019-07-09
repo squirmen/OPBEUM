@@ -1,6 +1,6 @@
 list.of.packages <- c("data.table","DBI","doParallel","e1071",
                       "FNN","foreach","foreign","geosphere","ggmap","ggplot2","ggrepel","gmapsdistance",
-                      "graphics","Grid2Polygons","gridExtra","Imap","kernlab","maps","maptools","nnet",
+                      "graphics","gridExtra","Imap","kernlab","maps","maptools","nnet",
                       "osmar","osrm","parallel","plm","plyr","progress","rangeMapper","raster","RDSTK","rgdal",
                       "rgeos","RPostgreSQL","RSQLite","snow","sp","spatstat","stringr","tm","utils","wordcloud")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -1095,8 +1095,7 @@ if(nrow(origins)<Splitrows){
       
       #end distance calcs  
       
-      dbDisconnect(con)
-      dbDisconnect(con_rt)
+            dbDisconnect(con_rt)
       
       #prep column names
       colnames(O_xy) <- c("o_x","o_y")
@@ -1124,11 +1123,6 @@ colnames(TRANSIT_FINAL2)<-c("PageNumber","o_x","o_y","RailDIS_n","rail_x","rail_
 ## End Transit router ##
 ########################
 
-
-
-
-
-
 #Merge transit distances with final dataset
 BASEcells<-merge(BASEcells,TRANSIT_FINAL2,all.x=T)
 
@@ -1142,74 +1136,6 @@ all_cells@data = data.frame(all_cells@data, BASEcells[match(all_cells@data[,'Pag
 #Write outputs (cSV and Shapefile)
 writeOGR(obj=all_cells, dsn="Output", layer="OPBEUM_RESULT_GRID", driver="ESRI Shapefile",overwrite_layer=T,check_exists=T) 
 write.table(BASEcells, paste0("Output/","OPBEUM_RESULT_GRID.csv"), row.names = F, col.names = T, append = F, sep=",",quote=F)
-
-
-###multimodal access add-on----
-
-###------------------------###
-###------Bing Geocoder-----###
-###------------------------###
-
-#list needed packages
-list.of.packages <- c("rgdal","RCurl","RJSONIO","rgeos","maptools","broom","ggplot2","dplyr","rjson","chron","sp","leaflet","reshape","KernSmooth","htmlwidgets","data.table")
-
-#load packages
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
-#load packages
-lapply(list.of.packages, require, character.only = TRUE)
-
-
-#set Bing maps API key (https://msdn.microsoft.com/en-us/library/ff428642.aspx)
-BingMapsKey<-"4SSYi1cN6ZqhHBFBGpxF~irqp0i-N366dGuqrTU6IWw~AvL7kNX1wh9dsO0GZa3QpkR1SDQKbwjc__cHl3sfL7vQ7Sfn_kJAp6cxSUmd0-XD"
-
-
-
-
-
-#Walking Routes (this sets up the API query for walking travel)
-walking <- function(origin,destination, BingMapsKey){
-  require(RCurl)
-  require(RJSONIO)
-  u <- URLencode(paste0("http://dev.virtualearth.net/REST/V1/Routes/Walking?wp.0=",origin,"&wp.1=",destination,"&key=",BingMapsKey))
-  d <- getURL(u)
-  j <- RJSONIO::fromJSON(d,simplify = FALSE) 
-  if (j$statusCode == 200) {
-    j<-j
-  }
-  else {    
-    j <- NA
-  }
-  j
-}
-
-#query Bing distance API and save results
-relay_pairs_sub<-slice(relay_pairs,1:100)
-
-mlat.df<-data.frame(matrix(0, nrow = nrow(relay_pairs_sub), ncol = 100,
-                           dimnames = list(NULL, paste0("mlat", 1:100))))
-mlon.df<-data.frame(matrix(0, nrow = nrow(relay_pairs_sub), ncol = 100,
-                           dimnames = list(NULL, paste0("mlon", 1:100))))
-
-for (a in 1:nrow(relay_pairs_sub)) {
-  tryCatch({
-    orig<-paste(relay_pairs_sub[a,2],relay_pairs_sub[a,3],sep=",")
-    dest<-paste(relay_pairs_sub[a,5],relay_pairs_sub[a,6],sep=",")
-    w<-walking(orig,dest,BingMapsKey)
-    ml<-length(w$resourceSets[[1]]$resources[[1]]$routeLegs[[1]]$itineraryItems)
-    mlat.df[a,1]<-relay_pairs_sub[a,2]
-    mlon.df[a,1]<-relay_pairs_sub[a,3]
-    mlat.df[a,ml+2]<-relay_pairs_sub[a,5]
-    mlon.df[a,ml+2]<-relay_pairs_sub[a,6]
-    for (b in 1:length(w$resourceSets[[1]]$resources[[1]]$routeLegs[[1]]$itineraryItems)) {
-      mlat.df[a,b+1]<-w$resourceSets[[1]]$resources[[1]]$routeLegs[[1]]$itineraryItems[[b]]$maneuverPoint$coordinates[1]
-      mlon.df[a,b+1]<-w$resourceSets[[1]]$resources[[1]]$routeLegs[[1]]$itineraryItems[[b]]$maneuverPoint$coordinates[2]
-      
-    }
-    
-  }, error=function(e){})
-}
 
 
 ################
