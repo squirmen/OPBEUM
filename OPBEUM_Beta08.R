@@ -13,7 +13,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 require(compiler)
 enableJIT(3)
 
-basedir<-"R://Data/Projects/Purple_Line"
+basedir<-"/Users/timwelch/Documents/Projects/OPBEUM" #Change to your local directory
 
 setwd(basedir)
 
@@ -36,7 +36,7 @@ gridsize<-200
 
 #connect to databases
 drv <- dbDriver("PostgreSQL")
-con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
+con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost", password = 12345)
 
 #----> CREATE GRID CELLS<----
 
