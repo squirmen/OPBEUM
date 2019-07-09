@@ -6,48 +6,9 @@ list.of.packages <- c("data.table","DBI","doParallel","e1071",
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
-library(nnet)
-library(graphics)
-library(e1071)
-library(plm)
-library(kernlab)
-library(data.table)
-library(stringr)
-library(parallel)
-library(doParallel)
-library(snow)
-library(sp)
-library(spatstat)
-library(maptools)
-library(rgeos)
-library(ggplot2)
-library(plyr)
-library(RSQLite)
-library(DBI)
-library(foreign)
-library(rgdal)
-library(maps)
-library(geosphere)
-library(gridExtra)
-library(ggmap)
-library(wordcloud)
-library(tm)
-library(ggrepel)
-library(gmapsdistance)
-library(Imap)
-library(utils)
-library(osmar)
-library(RPostgreSQL)
-library(raster)
-library(progress)
-library(spatstat)
-library(RDSTK)
-library(osrm)
-library(Grid2Polygons)
-library(FNN)
-library(rangeMapper)
-library(foreach)
-library(dplyr)
+#load packages
+lapply(list.of.packages, require, character.only = TRUE)
+
 
 require(compiler)
 enableJIT(3)
@@ -67,7 +28,7 @@ cell_centroid<-"Name"   #<--name shapefile here
 studyarea<-"purpleline_1mi_buffer"   #<--name shapefile here
 
 ##What size grid do you want (in meters)
-gridsize<-50
+gridsize<-200
 
 ######################
 ##   BE Variables   ##
@@ -75,9 +36,7 @@ gridsize<-50
 
 #connect to databases
 drv <- dbDriver("PostgreSQL")
-con <- dbConnect(drv, user = "postgres", dbname = "osm", host = "localhost")
 con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
-
 
 #----> CREATE GRID CELLS<----
 
@@ -102,7 +61,7 @@ con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localho
 
 ### define SpatialGrid object
 place.bb<-bbox(place.spr.original.proj)
-place.cs <- c(3.28084, 3.28084)*gridsize  # cell size 300m x 300m
+place.cs <- c(3.28084, 3.28084)*gridsize  
 # 1 ft = 3.28084 m
 place.cc <- place.bb[, 1] + (place.cs /2)  # cell offset
 place.cd <- ceiling(diff(t(place.bb))/place.cs)  # number of cells per direction
@@ -349,7 +308,7 @@ time_LEHD<-system.time({
     CNS20_y AS	n92,
     ST_AsText(geom) AS geom
     
-    FROM blocks_lehd_2011_us
+    FROM blocks_lehd_2012_us
     WHERE  
     geom && 
     ST_MakeEnvelope("
@@ -358,7 +317,7 @@ time_LEHD<-system.time({
     q_tsig <- paste(select,bb2,")")
     
     #Pull SQL result
-    tsig_result <- dbGetQuery(con, q_tsig)
+    tsig_result <- dbGetQuery(con_rt, q_tsig)
     tsig_result$ID<-row.names.data.frame(tsig_result)
     
     #tsig_result1<-tsig_result
@@ -639,7 +598,7 @@ time_census<-system.time({
     q_tsig <- paste(select,bb2,")")
     
     #Pull SQL result
-    tsig_result <- dbGetQuery(con, q_tsig)
+    tsig_result <- dbGetQuery(con_rt, q_tsig)
     tsig_result$ID<-row.names.data.frame(tsig_result)
     
     
@@ -821,7 +780,6 @@ if(nrow(origins)<Splitrows){
     TRANSIT_FINAL=foreach(i=1:OO,.combine = rbind,.errorhandling='remove') %dopar% {
 
       drv <- dbDriver("PostgreSQL")
-      con <- dbConnect(drv, user = "postgres", dbname = "osm", host = "localhost")
       con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
       
       origins_bb<-bbox(origins_cut[i,])
@@ -848,7 +806,7 @@ if(nrow(origins)<Splitrows){
       q_tsig <- paste(select,bb2,")")
       
       #Pull SQL result
-      tsig_result <- dbGetQuery(con, q_tsig)
+      tsig_result <- dbGetQuery(con_rt, q_tsig)
       
       #get only bus stations
       tsig_result_bus <- tsig_result[ which(tsig_result$route_type==3), ]
