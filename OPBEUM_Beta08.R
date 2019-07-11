@@ -1,4 +1,13 @@
-#-----OPEUM----
+##########################################################################
+###                 School of City and Regional Planning               ###
+###                   Georgia Institute of Technology                  ###
+###                         Professor Tim Welch                        ###
+###                          welch@gatech.edu                          ###
+##########################################################################
+####                                                                  ####  
+####---------------------------OPBEUM---------------------------------####
+####                          Version .81                             ####
+##########################################################################
 
 #-initialize----
 list.of.packages <- c("data.table","DBI","doParallel","e1071",
@@ -31,7 +40,7 @@ cell_centroid<-"Name"   #<--name shapefile here
 studyarea<-"purpleline_1mi_buffer"   #<--name shapefile here
 
 ##What size grid do you want (in meters)
-gridsize<-200
+gridsize<-100
 
 ######################
 ##   BE Variables   ##
@@ -39,7 +48,7 @@ gridsize<-200
 
 #connect to databases
 drv <- dbDriver("PostgreSQL")
-con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", port = 5432,host = "cqgrd-trans3.ad.gatech.edu", password = 12345)
+con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
 
 #----> CREATE GRID CELLS<----
 
@@ -783,7 +792,7 @@ for(j in 1:splitnumb_l) {
     TRANSIT_FINAL=foreach(i=1:OO,.combine = rbind,.errorhandling='remove') %dopar% {
       
       drv <- dbDriver("PostgreSQL")
-      con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", port = 5432 ,host = "cqgrd-trans3.ad.gatech.edu", password = 12345)
+      con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
       
       
       origins_bb<-bbox(origins_cut[i,])
@@ -969,7 +978,7 @@ for(j in 1:splitnumb_l) {
           ##get OD dist to rail
           
           q1<-   "SELECT seq, id1 AS node, id2 AS edge,km AS cost
-          FROM pgr_dijkstra('
+          FROM pgr_bdAstar('
           SELECT id AS id,
           source,
           target,
@@ -1123,7 +1132,7 @@ for(j in 1:splitnumb_l) {
           ##get OD dist to Bus
           
           q1<-   "SELECT seq, id1 AS node, id2 AS edge,km AS cost
-          FROM pgr_aStar('
+          FROM pgr_bdAstar('
           SELECT id AS id,
           source,
           target,
@@ -1251,7 +1260,7 @@ BASEcells$ACTIVITY<-BASEcells$Pop +BASEcells$Emp
 
 
 #Join BE data to grid cells
-all_cells@data = merge(all_cells@data, BASEcells,by.x="PagNmbr",by.y="PageNumber")
+all_cells@data = merge(all_cells@data, BASEcells,by.x="PageNumber",by.y="PageNumber")
 
 #Write outputs (cSV and Shapefile)
 writeOGR(obj=all_cells, dsn="Output", layer="OPBEUM_RESULT_GRID", driver="ESRI Shapefile",overwrite_layer=T,check_exists=T)
@@ -1262,7 +1271,7 @@ write.table(BASEcells, paste0("Output/","OPBEUM_RESULT_GRID.csv"), row.names = F
 ## END OPBEUM ##
 ################
 
-##Add leaflet map
+##Add leaflet map----
 
 #load ppl stations
 ppl_stations<-readOGR(dsn = "Input", layer = "purple_line_stops")
@@ -1354,7 +1363,7 @@ map <- map %>%
                group = 'Purple Line') 
 # add polygons
 bins <- c(0, .25,.5, .75, Inf)
-pal <- colorBin("YlOrRd", domain = all_cells$RlDIS_n, bins = bins)
+pal <- colorBin("YlOrRd", domain = all_cells@data$RlDIS_n, bins = bins)
 
 
 # add polygons
@@ -1371,7 +1380,7 @@ map <- map %>%
               group = 'Rail Distance')
 
 bins2 <- c(0, 1,2, 5, Inf)
-pal2 <- colorBin("Blues", domain = all_cells$EmpDens, bins = bins2)
+pal2 <- colorBin("Blues", domain = all_cells@data$EmpDens, bins = bins2)
 
 map <- map %>%
   addPolygons(data=all_cells,
