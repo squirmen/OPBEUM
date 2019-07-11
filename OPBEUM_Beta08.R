@@ -1,3 +1,6 @@
+#-----OPEUM----
+
+#-initialize----
 list.of.packages <- c("data.table","DBI","doParallel","e1071",
                       "FNN","foreach","foreign","geosphere","ggmap","ggplot2","ggrepel","gmapsdistance",
                       "graphics","gridExtra","Imap","kernlab","maps","maptools","nnet",
@@ -13,7 +16,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 require(compiler)
 enableJIT(3)
 
-basedir<-"/Users/timwelch/Documents/Projects/OPBEUM" #Change to your local directory
+basedir<-"R:\\Data\\Projects\\Purple_Line" #Change to your local directory
 
 setwd(basedir)
 
@@ -36,11 +39,11 @@ gridsize<-200
 
 #connect to databases
 drv <- dbDriver("PostgreSQL")
-con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost", password = 12345)
+con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", port = 5432,host = "cqgrd-trans3.ad.gatech.edu", password = 12345)
 
 #----> CREATE GRID CELLS<----
 
-  ## Set-up Inputs/OUTPUTS
+## Set-up Inputs/OUTPUTS
 
 # ##ODs from real station data
 #   GRID_BIKESHARE_REALODs = fread(paste0("Input/","cabi_OD_01.csv"), sep=",",header = TRUE)
@@ -48,13 +51,13 @@ con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localho
 #     names(GRID_BIKESHARE_REALODs)[names(GRID_BIKESHARE_REALODs)=="Destination"] <- "TERMINAL_N_D"
 
 
-   #study area shapefile
-  place.spr.original<-readOGR(dsn = "Input", layer = paste0(studyarea))
-  place.spr.original.proj<-spTransform( place.spr.original, CRS( "+init=epsg:3347" ) ) 
-  #place.spr <- spTransform(place.spr.original,CRS("+proj=longlat +datum=WGS84"))
-  
-  # #Bike-share station locations
-  # bs.stations<-readOGR(dsn = "Input", layer = "Capital_Bike_Share_Locations") 
+#study area shapefile
+place.spr.original<-readOGR(dsn = "Input", layer = paste0(studyarea))
+place.spr.original.proj<-spTransform( place.spr.original, CRS( "+init=epsg:3347" ) ) 
+#place.spr <- spTransform(place.spr.original,CRS("+proj=longlat +datum=WGS84"))
+
+# #Bike-share station locations
+# bs.stations<-readOGR(dsn = "Input", layer = "Capital_Bike_Share_Locations") 
 
 # place.spr<-place.sp #use for specific area
 # place.spr<-place.sp[z,] #use if shape loop
@@ -102,23 +105,22 @@ all_cells <-spTransform(all_cells, CRS("+proj=longlat +datum=WGS84"))
 colnames(all_cells@data)[1] <- "PageNumber"
 
 if(cell_centroid=="Name"){
-#get the centroid of the cells for routing
-origins<- gCentroid(all_cells,byid=TRUE)
-origins <- SpatialPointsDataFrame(origins,all_cells.df)
+  #get the centroid of the cells for routing
+  origins<- gCentroid(all_cells,byid=TRUE)
+  origins <- SpatialPointsDataFrame(origins,all_cells.df)
   colnames(origins@data)[1] <- "PageNumber"
-
+  
 }else{
-## Set-up Inputs/OUTPUTS
-origins<-readOGR(dsn = "Input", layer = cell_centroid) #input origins shapefile
-origins <-spTransform(origins, CRS("+proj=longlat +datum=WGS84"))
+  ## Set-up Inputs/OUTPUTS
+  origins<-readOGR(dsn = "Input", layer = cell_centroid) #input origins shapefile
+  origins <-spTransform(origins, CRS("+proj=longlat +datum=WGS84"))
 }
 
 
 #writeOGR(obj=all_cells, dsn=".", layer="all_cells", driver="ESRI Shapefile") 
 
-##
-#Build Itersection Query
-##
+#----> Build Itersection Query<----
+
 INT_FINAL<- data.frame(ref_count=integer(),
                        lat=numeric(), 
                        lon=numeric(),
@@ -227,7 +229,7 @@ int.temp$BETA<-int.temp$LINKS/(int.temp$Intersections+int.temp$CulDeSacs)
 int.temp$GAMMA<-int.temp$LINKS/(3*((int.temp$Intersections+int.temp$CulDeSacs)-2))
 int.temp$CYCL<-int.temp$LINKS-(int.temp$Intersections+int.temp$CulDeSacs)+2
 
-###Get LEHD Data
+#----> Get LEHD Data<----
 LEHD_FINAL<- data.frame(tot_jobs=numeric(),
                         n11=numeric(),
                         n21=numeric(),
@@ -334,7 +336,7 @@ time_LEHD<-system.time({
     proj4string(all_cells_cut) <- CRS("+proj=longlat +ellps=WGS84") 
     #all_cells_cut.proj <- spTransform(all_cells_cut, CRS( "+init=epsg:3347" ) ) #for area
     poly.spdf.proj <- spTransform( poly.spdf, CRS( "+init=epsg:3347" ) ) #for area
-  
+    
     #Use just the PageNumber column
     
     all_cells_cut_red<-all_cells_cut[,1]
@@ -547,7 +549,8 @@ emp.temp$Entr_8C<-(-1)*((retail_8e$retail_8+
 
 
 
-###Get census Data
+#----> Get census Data<----
+
 CENSUS_FINAL<- data.frame(pop=numeric(),
                           housing=numeric(),
                           lat=numeric(), 
@@ -722,7 +725,7 @@ BASEcells<-as.data.frame(sapply(BASEcells,as.numeric))
 
 #} #end county loop if looping
 
-##-------------Calc netwotk distance to transit----------------##
+##Calc netwotk distance to transit----------------##----
 if (file.exists(paste0("temp/",studyarea,".csv"))) file.remove(paste0("temp/",studyarea,".csv"))
 
 TRANSIT_FINAL<- data.frame(
@@ -751,8 +754,8 @@ if(nrow(origins)<Splitrows){
 
 #Loops through cell chunks
 #for(j in 1:3) {
-  for(j in 1:splitnumb_l) {
-    
+for(j in 1:splitnumb_l) {
+  
   if(j==splitnumb_l){
     X1=(j-1)*Splitrows
     X2=Splitrows*j+Splitrows*leftover
@@ -776,17 +779,18 @@ if(nrow(origins)<Splitrows){
   #Read in bike station locations
   timeTR<-system.time({
     OO<-nrow(origins_cut)
-
+    
     TRANSIT_FINAL=foreach(i=1:OO,.combine = rbind,.errorhandling='remove') %dopar% {
-
+      
       drv <- dbDriver("PostgreSQL")
-      con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
+      con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", port = 5432 ,host = "cqgrd-trans3.ad.gatech.edu", password = 12345)
+      
       
       origins_bb<-bbox(origins_cut[i,])
       #get origin ID and YX
       originID<-origins_cut$PageNumber[i] #change this to the ID column for the loaded shape'
-      bbl<-origins_bb*.9995  
-      bbh<-origins_bb*1.0005  
+      bbl<-origins_bb*.999
+      bbh<-origins_bb*1.0008  
       O_xy<-coordinates(origins_cut[i,])
       
       #transform to planar coordinates
@@ -845,16 +849,38 @@ if(nrow(origins)<Splitrows){
       
       #get closest osm node
       near_node<-gDistance(origins.proj, spgeom2=node.spdf.proj, byid=T, hausdorff=FALSE, densifyFrac = NULL)
-      node_dist<-min(near_node)
-      node_id<-node.spdf$osm_id[which(near_node==min(near_node))]
+      #node_dist<-min(near_node)
+      
+      node_id<-node.spdf$osm_id[which(near_node==sort(near_node)[1])]
       
       #get the 'source' node for routing
       select<-"SELECT source
       FROM at_2po_4pgr
-      WHERE osm_source_id =" 
+      WHERE osm_source_id ="
       q_node_origin <- paste(select,node_id)
       
       qnode_result_origin <- dbGetQuery(con_rt, q_node_origin)[1,]
+      
+      #loop to make sure a node is captured
+      t=1
+      iters=t
+      while(TRUE) {
+        
+        if(class(qnode_result_origin) != "data.frame"|iters==10)
+          break
+        node_id<-node.spdf$osm_id[which(near_node==sort(near_node)[t])]
+        #get the 'source' node for routing
+        select<-"SELECT source
+        FROM at_2po_4pgr
+        WHERE osm_source_id ="
+        q_node_origin <- paste(select,node_id)
+        
+        qnode_result_origin <- dbGetQuery(con_rt, q_node_origin)[1,]
+        t=t+1
+        iters=t
+      }
+      
+      
       
       #********************
       #Calc RAIL diatance**
@@ -918,13 +944,32 @@ if(nrow(origins)<Splitrows){
           
           qnode_result_rail <- dbGetQuery(con_rt, q_node_rail)[1,]
           
+          #loop to make sure a node is captured
+          t=1
+          iters=t
+          while(TRUE) {
+            
+            if(class(qnode_result_rail) != "data.frame"|iters==10)
+              break
+            node_rail_id<-node.spdf$osm_id[which(near_node_rail==sort(near_node_rail)[t])]
+            #get the 'source' node for routing
+            select<-"SELECT source
+            FROM at_2po_4pgr
+            WHERE osm_source_id ="
+            q_node_rail <- paste(select,near_node_rail)
+            
+            qnode_result_rail <- dbGetQuery(con_rt, q_node_rail)[1,]
+            t=t+1
+            iters=t
+          }
+          
           
           #----------------------
           
           ##get OD dist to rail
           
           q1<-   "SELECT seq, id1 AS node, id2 AS edge,km AS cost
-          FROM pgr_astar('
+          FROM pgr_dijkstra('
           SELECT id AS id,
           source,
           target,
@@ -1053,12 +1098,32 @@ if(nrow(origins)<Splitrows){
           
           qnode_result_bus <- dbGetQuery(con_rt, q_node_bus)[1,]
           
+          #loop to make sure a node is captured
+          t=1
+          iters=t
+          while(TRUE) {
+            
+            if(class(qnode_result_bus) != "data.frame"|iters==10)
+              break
+            node_bus_id<-node.spdf$osm_id[which(near_node_bus==sort(near_node_bus)[t])]
+            #get the 'source' node for routing
+            select<-"SELECT source
+            FROM at_2po_4pgr
+            WHERE osm_source_id ="
+            q_node_bus <- paste(select,near_node_bus)
+            
+            qnode_result_bus <- dbGetQuery(con_rt, q_node_bus)[1,]
+            t=t+1
+            iters=t
+          }
+          
+          
           #----------------------------  
           
           ##get OD dist to Bus
           
           q1<-   "SELECT seq, id1 AS node, id2 AS edge,km AS cost
-          FROM pgr_astar('
+          FROM pgr_aStar('
           SELECT id AS id,
           source,
           target,
@@ -1095,7 +1160,7 @@ if(nrow(origins)<Splitrows){
       
       #end distance calcs  
       
-            dbDisconnect(con_rt)
+      dbDisconnect(con_rt)
       
       #prep column names
       colnames(O_xy) <- c("o_x","o_y")
@@ -1123,6 +1188,61 @@ colnames(TRANSIT_FINAL2)<-c("PageNumber","o_x","o_y","RailDIS_n","rail_x","rail_
 ## End Transit router ##
 ########################
 
+# 
+# ###multimodal access add-on----
+# 
+# ###------------------------###
+# ###------Bing Geocoder-----###
+# ###------------------------###
+# 
+# #list needed packages
+# list.of.packages <- c("rgdal","RCurl","RJSONIO","rgeos","maptools","broom","ggplot2","dplyr","rjson","chron","sp","leaflet","reshape","KernSmooth","htmlwidgets","data.table")
+# 
+# #load packages
+# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+# if(length(new.packages)) install.packages(new.packages)
+# 
+# #load packages
+# lapply(list.of.packages, require, character.only = TRUE)
+# 
+# 
+# #set Bing maps API key (https://msdn.microsoft.com/en-us/library/ff428642.aspx)
+# BingMapsKey<-" Agn0fRBwgeo-_iwc0WmSUpPaOa8E621FPTSwkpP3Ctr2RNgxIYIbwkvOOHbqyDbT"
+# 
+# #Walking Routes (this sets up the API query for walking travel)
+# walking <- function(origin,destination, BingMapsKey){
+#   require(RCurl)
+#   require(RJSONIO)
+#   u <- URLencode(paste0("http://dev.virtualearth.net/REST/V1/Routes/Walking?wp.0=",origin,"&wp.1=",destination,"&key=",BingMapsKey))
+#   d <- getURL(u)
+#   j <- RJSONIO::fromJSON(d,simplify = FALSE) 
+#   if (j$statusCode == 200) {
+#       dist<- j$resourceSets[[1]]$resources[[1]]$routeLegs[[1]]$travelDistance
+#     }
+#     else {    
+#       dist <- NA
+#     }
+#     c(dist)
+#   }
+#   
+# #query Bing distance API and save results
+# #TRANSIT_FINAL2_1m<-TRANSIT_FINAL2[which(TRANSIT_FINAL2$RailDIS_n<1.5,)]
+# TRANSIT_FINAL2$walk_rail<-NA
+# 
+# for (a in 1:nrow(TRANSIT_FINAL2)) {
+#   tryCatch({
+#     if (TRANSIT_FINAL2$RailDIS_n[a]<1.5) {
+#         orig<-paste(TRANSIT_FINAL2[a,o_y],TRANSIT_FINAL2[a,o_x],sep=",")
+#         dest<-paste(TRANSIT_FINAL2[a,rail_y],TRANSIT_FINAL2[a,rail_x],sep=",")
+#         TRANSIT_FINAL2$walk_rail[a]<-walking(orig,dest,BingMapsKey)
+#               }else{
+#                 TRANSIT_FINAL2$walk_rail[a]<-TRANSIT_FINAL2$RailDIS_n[a]
+#               } #end if/else
+#   }, error=function(e){})
+#    } #end loop
+# 
+# 
+# 
 #Merge transit distances with final dataset
 BASEcells<-merge(BASEcells,TRANSIT_FINAL2,all.x=T)
 
@@ -1130,13 +1250,13 @@ BASEcells<-merge(BASEcells,TRANSIT_FINAL2,all.x=T)
 BASEcells$ACTIVITY<-BASEcells$Pop +BASEcells$Emp
 
 
-#Join BE data to grid cells 
-all_cells@data = data.frame(all_cells@data, BASEcells[match(all_cells@data[,'PageNumber'], BASEcells[,'PageNumber']),])
+#Join BE data to grid cells
+all_cells@data = merge(all_cells@data, BASEcells,by.x="PagNmbr",by.y="PageNumber")
 
 #Write outputs (cSV and Shapefile)
-writeOGR(obj=all_cells, dsn="Output", layer="OPBEUM_RESULT_GRID", driver="ESRI Shapefile",overwrite_layer=T,check_exists=T) 
+writeOGR(obj=all_cells, dsn="Output", layer="OPBEUM_RESULT_GRID", driver="ESRI Shapefile",overwrite_layer=T,check_exists=T)
 write.table(BASEcells, paste0("Output/","OPBEUM_RESULT_GRID.csv"), row.names = F, col.names = T, append = F, sep=",",quote=F)
-
+# 
 
 ################
 ## END OPBEUM ##
@@ -1226,12 +1346,12 @@ map <- map %>%
                group = 'WMATA Bus Lines') 
 
 map <- map %>%
-addPolylines(data = ppl_line,
-             weight = 3,
-             color = 'purple',
-             popup = 'Purple Line', 
-             smoothFactor = 3,
-             group = 'Purple Line') 
+  addPolylines(data = ppl_line,
+               weight = 3,
+               color = 'purple',
+               popup = 'Purple Line', 
+               smoothFactor = 3,
+               group = 'Purple Line') 
 # add polygons
 bins <- c(0, .25,.5, .75, Inf)
 pal <- colorBin("YlOrRd", domain = all_cells$RlDIS_n, bins = bins)
@@ -1283,7 +1403,7 @@ map <- map %>%
 map    
 
 # # # save a stand-alone, interactive map as an html file
- library(htmlwidgets)
+library(htmlwidgets)
 saveWidget(widget = map, file = 'map.html', selfcontained = T)
 
 # # # save a snapshot as a png file
