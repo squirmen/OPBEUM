@@ -1,13 +1,4 @@
-##########################################################################
-###                 School of City and Regional Planning               ###
-###                   Georgia Institute of Technology                  ###
-###                         Professor Tim Welch                        ###
-###                          welch@gatech.edu                          ###
-##########################################################################
-####                                                                  ####  
-####---------------------------OPBEUM---------------------------------####
-####                          Version .81                             ####
-##########################################################################
+#-----OPEUM----
 
 #-initialize----
 list.of.packages <- c("data.table","DBI","doParallel","e1071",
@@ -40,7 +31,7 @@ cell_centroid<-"Name"   #<--name shapefile here
 studyarea<-"purpleline_1mi_buffer"   #<--name shapefile here
 
 ##What size grid do you want (in meters)
-gridsize<-100
+gridsize<-50
 
 ######################
 ##   BE Variables   ##
@@ -1260,12 +1251,12 @@ BASEcells$ACTIVITY<-BASEcells$Pop +BASEcells$Emp
 
 
 #Join BE data to grid cells
-all_cells@data = merge(all_cells@data, BASEcells,by.x="PageNumber",by.y="PageNumber")
+all_cells@data = data.frame(all_cells@data, BASEcells[match(all_cells@data[,'PageNumber'], BASEcells[,'PageNumber']),])
 
 #Write outputs (cSV and Shapefile)
 writeOGR(obj=all_cells, dsn="Output", layer="OPBEUM_RESULT_GRID", driver="ESRI Shapefile",overwrite_layer=T,check_exists=T)
 write.table(BASEcells, paste0("Output/","OPBEUM_RESULT_GRID.csv"), row.names = F, col.names = T, append = F, sep=",",quote=F)
-# 
+
 
 ################
 ## END OPBEUM ##
@@ -1288,7 +1279,7 @@ metro_bus_line<-spTransform( metro_bus_line,CRS("+proj=longlat +datum=WGS84"))
 
 
 #load grids
-all_cells<-readOGR(dsn = "Output", layer = "OPBEUM_RESULT_GRID")
+#all_cells<-readOGR(dsn = "Output", layer = "OPBEUM_RESULT_GRID")
 
 
 # required libraries
@@ -1363,7 +1354,7 @@ map <- map %>%
                group = 'Purple Line') 
 # add polygons
 bins <- c(0, .25,.5, .75, Inf)
-pal <- colorBin("YlOrRd", domain = all_cells@data$RlDIS_n, bins = bins)
+pal <- colorBin("YlOrRd", domain = all_cells@data$RailDIS_n, bins = bins)
 
 
 # add polygons
@@ -1371,7 +1362,7 @@ map <- map %>%
   addPolygons(data=all_cells,
               weight = 1, 
               color = 'grey', 
-              fillColor = ~pal(RlDIS_n),
+              fillColor = ~pal(RailDIS_n),
               fill = T, 
               fillOpacity = 0.25, 
               stroke = T, 
