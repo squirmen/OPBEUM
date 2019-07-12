@@ -9,7 +9,6 @@
 ####                          Version .81                             ####
 ##########################################################################
 
-
 #-initialize----
 list.of.packages <- c("data.table","DBI","doParallel","e1071",
                       "FNN","foreach","foreign","geosphere","ggmap","ggplot2","ggrepel","gmapsdistance",
