@@ -31,7 +31,7 @@ cell_centroid<-"Name"   #<--name shapefile here
 studyarea<-"purpleline_1mi_buffer"   #<--name shapefile here
 
 ##What size grid do you want (in meters)
-gridsize<-50
+gridsize<-200
 
 ######################
 ##   BE Variables   ##
@@ -733,9 +733,11 @@ TRANSIT_FINAL<- data.frame(
   o_x=numeric(), 
   o_y=numeric(), 
   RailDIS_n=numeric(),
+  WlkRailDIS=numeric(),
   rail_x=numeric(), 
   rail_y=numeric(),
   BusDIS_n=numeric(),
+  WlkBusDIS_n=numeric(),
   bus_x=numeric(), 
   bus_y=numeric(),
   stringsAsFactors=FALSE)
@@ -881,7 +883,6 @@ for(j in 1:splitnumb_l) {
       }
       
       
-      
       #********************
       #Calc RAIL diatance**
       #********************
@@ -983,25 +984,36 @@ for(j in 1:splitnumb_l) {
           d_node<-qnode_result_rail
           q3<-") as box
           WHERE r.geom_way && box.box',"
+          q3a<-") as box
+          WHERE r.geom_way && box.box AND r.clazz>14',"
           q4<-","
           q5<-", false, false)as r INNER JOIN at_2po_4pgr as g ON r.id2 = g.id ;"
           
           q_railD <- paste0(q1,o_node,q2,d_node,q3,o_node,q4,d_node,q5)
+          q_wrailD <- paste0(q1,o_node,q2,d_node,q3a,o_node,q4,d_node,q5)
           
           d_result_rail <- dbGetQuery(con_rt, q_railD)
+          d_result_wrail <- dbGetQuery(con_rt, q_wrailD)
           
           RailDIS_n=sum(d_result_rail$cost)*0.621371
+          WlkRailDIS_n=sum(d_result_wrail$cost)*0.621371
           
           #----------------------------  
         } else{
           RailDIS_n<-9999
+          WlkRailDIS_n<-9999
+          
           rail_xy<-matrix(0, 1, 2)
         }
         
       } else{
         RailDIS_n<-9999
+        WlkRailDIS_n<-9999
         rail_xy<-matrix(0, 1, 2)
       }
+      
+      
+      
       
       #********************
       #Calc BUS diatance**
@@ -1120,7 +1132,7 @@ for(j in 1:splitnumb_l) {
           
           #----------------------------  
           
-          ##get OD dist to Bus
+          ##get OD dist to Bus----
           
           q1<-   "SELECT seq, id1 AS node, id2 AS edge,km AS cost
           FROM pgr_bdAstar('
@@ -1137,24 +1149,35 @@ for(j in 1:splitnumb_l) {
           d_node<-qnode_result_bus
           q3<-") as box
           WHERE r.geom_way && box.box',"
+          q3a<-") as box
+          WHERE r.geom_way && box.box AND r.clazz>14',"
           q4<-","
           q5<-", false, false)as r INNER JOIN at_2po_4pgr as g ON r.id2 = g.id ;"
           
           q_busD <- paste0(q1,o_node,q2,d_node,q3,o_node,q4,d_node,q5)
+          q_wbusD <- paste0(q1,o_node,q2,d_node,q3a,o_node,q4,d_node,q5)
           
           d_result_bus <- dbGetQuery(con_rt, q_busD)
+          d_result_wbus <- dbGetQuery(con_rt, q_wbusD)
+          
           
           BusDIS_n=sum(d_result_bus$cost)*0.621371
+          WlkBusDIS_n=sum(d_result_wbus$cost)*0.621371
+          
           
           #----------------------------  
           
         } else{
           BusDIS_n<-9999
+          WlkBusDIS_n<-9999
+          
           bus_xy<-matrix(0, 1, 2)
         }
         
       } else{
         BusDIS_n<-9999
+        WlkBusDIS_n<-9999
+        
         bus_xy<-matrix(0, 1, 2)
       }
       
@@ -1168,7 +1191,7 @@ for(j in 1:splitnumb_l) {
       colnames(bus_xy) <- c("bus_x","bus_y")
       
       #Merge all location results
-      cbind.data.frame(originID,O_xy,RailDIS_n,rail_xy,BusDIS_n,bus_xy,row.names = NULL)
+      cbind.data.frame(originID,O_xy,RailDIS_n,WlkRailDIS_n,rail_xy,BusDIS_n,WlkBusDIS_n,bus_xy,row.names = NULL)
       
     }  
     
@@ -1181,68 +1204,24 @@ for(j in 1:splitnumb_l) {
 }
 
 TRANSIT_FINAL2 = fread(paste0("temp/",studyarea,".csv"), sep=",",header = F)
-colnames(TRANSIT_FINAL2)<-c("PageNumber","o_x","o_y","RailDIS_n","rail_x","rail_y","BusDIS_n","bus_x","bus_y")
+colnames(TRANSIT_FINAL2)<-c("PageNumber","o_x","o_y","RailDIS_n","WlkRailDIS_n","rail_x","rail_y","BusDIS_n","WlkBusDIS_n","bus_x","bus_y")
+for(f in 1:nrow(TRANSIT_FINAL2)){
+  if(TRANSIT_FINAL2$RailDIS_n[f] == 0){
+    TRANSIT_FINAL2$RailDIS_n[f]=TRANSIT_FINAL2$RailDIS_n[f+1]  
+  }
+  if(TRANSIT_FINAL2$BusDIS_n[f] == 0){
+    TRANSIT_FINAL2$BusDIS_n[f]=TRANSIT_FINAL2$BusDIS_n[f+1]  
+  }
+}
+TRANSIT_FINAL2$WlkRailDIS_n[TRANSIT_FINAL2$WlkRailDIS_n == 0] <- TRANSIT_FINAL2$RailDIS_n[TRANSIT_FINAL2$WlkRailDIS_n == 0]
+TRANSIT_FINAL2$WlkBusDIS_n[TRANSIT_FINAL2$WlkBusDIS_n == 0] <- TRANSIT_FINAL2$BusDIS_n[TRANSIT_FINAL2$WlkBusDIS_n == 0]
+
 #write.table(TRANSIT_FINAL2, paste0(studyarea,"2",".csv"), row.names = F, col.names = T, append = F, sep=",",quote=F)
 
 ########################
 ## End Transit router ##
 ########################
 
-# 
-# ###multimodal access add-on----
-# 
-# ###------------------------###
-# ###------Bing Geocoder-----###
-# ###------------------------###
-# 
-# #list needed packages
-# list.of.packages <- c("rgdal","RCurl","RJSONIO","rgeos","maptools","broom","ggplot2","dplyr","rjson","chron","sp","leaflet","reshape","KernSmooth","htmlwidgets","data.table")
-# 
-# #load packages
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-# if(length(new.packages)) install.packages(new.packages)
-# 
-# #load packages
-# lapply(list.of.packages, require, character.only = TRUE)
-# 
-# 
-# #set Bing maps API key (https://msdn.microsoft.com/en-us/library/ff428642.aspx)
-# BingMapsKey<-" Agn0fRBwgeo-_iwc0WmSUpPaOa8E621FPTSwkpP3Ctr2RNgxIYIbwkvOOHbqyDbT"
-# 
-# #Walking Routes (this sets up the API query for walking travel)
-# walking <- function(origin,destination, BingMapsKey){
-#   require(RCurl)
-#   require(RJSONIO)
-#   u <- URLencode(paste0("http://dev.virtualearth.net/REST/V1/Routes/Walking?wp.0=",origin,"&wp.1=",destination,"&key=",BingMapsKey))
-#   d <- getURL(u)
-#   j <- RJSONIO::fromJSON(d,simplify = FALSE) 
-#   if (j$statusCode == 200) {
-#       dist<- j$resourceSets[[1]]$resources[[1]]$routeLegs[[1]]$travelDistance
-#     }
-#     else {    
-#       dist <- NA
-#     }
-#     c(dist)
-#   }
-#   
-# #query Bing distance API and save results
-# #TRANSIT_FINAL2_1m<-TRANSIT_FINAL2[which(TRANSIT_FINAL2$RailDIS_n<1.5,)]
-# TRANSIT_FINAL2$walk_rail<-NA
-# 
-# for (a in 1:nrow(TRANSIT_FINAL2)) {
-#   tryCatch({
-#     if (TRANSIT_FINAL2$RailDIS_n[a]<1.5) {
-#         orig<-paste(TRANSIT_FINAL2[a,o_y],TRANSIT_FINAL2[a,o_x],sep=",")
-#         dest<-paste(TRANSIT_FINAL2[a,rail_y],TRANSIT_FINAL2[a,rail_x],sep=",")
-#         TRANSIT_FINAL2$walk_rail[a]<-walking(orig,dest,BingMapsKey)
-#               }else{
-#                 TRANSIT_FINAL2$walk_rail[a]<-TRANSIT_FINAL2$RailDIS_n[a]
-#               } #end if/else
-#   }, error=function(e){})
-#    } #end loop
-# 
-# 
-# 
 #Merge transit distances with final dataset
 BASEcells<-merge(BASEcells,TRANSIT_FINAL2,all.x=T)
 
@@ -1304,13 +1283,14 @@ map <- leaflet() %>%
                                      'Purple Line',
                                      'WMATA Rail Lines',
                                      'WMATA Bus Lines',
-                                     'Rail Distance',
+                                     'Rail Distance - Drive',
+                                     'Rail Distance - Walk',
                                      'Employment Density'),
                    options = layersControlOptions(collapsed = FALSE),
                    position = 'topright') %>%
   
   # list groups to hide on startup
-  hideGroup(c('WMATA Bus Lines','WMATA Rail Lines','Employment Density'))
+  hideGroup(c('WMATA Bus Lines','WMATA Rail Lines','Rail Distance - Walk','Employment Density'))
 
 # add points
 map <- map %>%
@@ -1353,8 +1333,8 @@ map <- map %>%
                smoothFactor = 3,
                group = 'Purple Line') 
 # add polygons
-bins <- c(0, .25,.5, .75, Inf)
-pal <- colorBin("YlOrRd", domain = all_cells@data$RailDIS_n, bins = bins)
+bins <- c(0,.10, .25,.5, .75,1,1.25,1.5,1.75,2, Inf)
+pal <- colorBin("PuRd", domain = all_cells@data$RailDIS_n, bins = bins)
 
 
 # add polygons
@@ -1368,7 +1348,25 @@ map <- map %>%
               stroke = T, 
               dashArray = c(5,5), 
               smoothFactor = 3,
-              group = 'Rail Distance')
+              group = 'Rail Distance - Drive')
+
+# add polygons
+bins <- c(0,.10, .25,.5, .75,1,1.25,1.5,1.75,2, Inf)
+pal <- colorBin("PuRd", domain = all_cells@data$WlkRailDIS_n, bins = bins)
+
+
+# add polygons
+map <- map %>%
+  addPolygons(data=all_cells,
+              weight = 1, 
+              color = 'grey', 
+              fillColor = ~pal(RailDIS_n),
+              fill = T, 
+              fillOpacity = 0.25, 
+              stroke = T, 
+              dashArray = c(5,5), 
+              smoothFactor = 3,
+              group = 'Rail Distance - Walk')
 
 bins2 <- c(0, 1,2, 5, Inf)
 pal2 <- colorBin("Blues", domain = all_cells@data$EmpDens, bins = bins2)
