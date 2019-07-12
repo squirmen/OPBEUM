@@ -47,7 +47,7 @@ gridsize<-200
 ##   BE Variables   ##
 ######################
 
-#connect to databases
+#connect to databases----
 drv <- dbDriver("PostgreSQL")
 con_rt <- dbConnect(drv, user = "postgres", dbname = "opbeumDB", host = "localhost")
 
